@@ -31,6 +31,16 @@ class FireDetectionPipeline:
         print(f"Initializing video streamer: {config.source}")
         self.streamer = VideoStreamer(source=config.source)
 
+        # Initialize Web dashboard if enabled (initialize first to get AlertStore)
+        self.web = None
+        if config.web_dashboard_enabled:
+            print("Initializing web dashboard...")
+            self.web = WebNotifier(
+                host=config.web_host,
+                port=config.web_port,
+            )
+            self.web.start()
+
         # Initialize Telegram if configured
         self.telegram = None
         if config.telegram_bot_token and config.telegram_chat_id:
@@ -40,15 +50,19 @@ class FireDetectionPipeline:
                 chat_id=config.telegram_chat_id,
             )
 
-        # Initialize Web dashboard if enabled
-        self.web = None
-        if config.web_dashboard_enabled:
-            print("Initializing web dashboard...")
-            self.web = WebNotifier(
-                host=config.web_host,
-                port=config.web_port,
-            )
-            self.web.start()
+            # Set up callback handler to sync Telegram actions with web dashboard
+            if self.web:
+                def handle_telegram_callback(alert_id: int, action: str):
+                    """Handle Telegram button clicks and sync with web dashboard."""
+                    status = "confirmed" if action == "confirm" else "rejected"
+                    success = self.web.store.update_status(alert_id, status)
+                    if success:
+                        print(f"✓ Alert #{alert_id} {status} via Telegram")
+                    else:
+                        print(f"✗ Failed to update alert #{alert_id}")
+
+                self.telegram.set_callback_handler(handle_telegram_callback)
+                self.telegram.start_polling()
 
     def run(self):
         """Run the detection pipeline."""
@@ -86,13 +100,14 @@ class FireDetectionPipeline:
                 if should_alert and detections:
                     print(f"🚨 ALERT triggered! (consecutive: {self.consecutive_count})")
 
-                    # Send to Telegram
-                    if self.telegram:
-                        self.telegram.send_alert(annotated, detections, self.config.source)
-
-                    # Send to web dashboard
+                    # Create alert and get ID (web dashboard first to get alert_id)
+                    alert_id = None
                     if self.web:
-                        self.web.send_alert(annotated, detections, self.config.source)
+                        alert_id = self.web.send_alert(annotated, detections, self.config.source)
+
+                    # Send to Telegram with alert_id for button callbacks
+                    if self.telegram:
+                        self.telegram.send_alert(annotated, detections, self.config.source, alert_id)
 
                     self.alert_count += 1
                     self.last_alert_time = time.time()
