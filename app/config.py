@@ -14,6 +14,14 @@ class Config:
         self.class_map = {}
         self.target_classes = []
 
+        # Alert settings
+        self.consecutive_detections = int(os.getenv("CONSECUTIVE_DETECTIONS", "3"))
+        self.alert_cooldown = int(os.getenv("ALERT_COOLDOWN", "30"))
+
+        # Telegram settings
+        self.telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        self.telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+
     @classmethod
     def from_env(cls):
         return cls()

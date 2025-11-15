@@ -3,6 +3,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -63,6 +67,26 @@ Example:
         choices=[0, 1],
         help="Display video window (1=yes, 0=no)",
     )
+    parser.add_argument(
+        "--telegram-bot-token",
+        type=str,
+        help="Telegram bot token for alerts",
+    )
+    parser.add_argument(
+        "--telegram-chat-id",
+        type=str,
+        help="Telegram chat ID for alerts",
+    )
+    parser.add_argument(
+        "--consecutive",
+        type=int,
+        help="Consecutive detections before alert (default: 3)",
+    )
+    parser.add_argument(
+        "--cooldown",
+        type=int,
+        help="Alert cooldown in seconds (default: 30)",
+    )
 
     return parser.parse_args()
 
@@ -85,6 +109,14 @@ def main():
         config.img_size = args.imgsz
     if args.display is not None:
         config.display = args.display
+    if args.telegram_bot_token:
+        config.telegram_bot_token = args.telegram_bot_token
+    if args.telegram_chat_id:
+        config.telegram_chat_id = args.telegram_chat_id
+    if args.consecutive:
+        config.consecutive_detections = args.consecutive
+    if args.cooldown:
+        config.alert_cooldown = args.cooldown
 
     # Parse class map
     if args.class_map:

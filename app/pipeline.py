@@ -1,8 +1,10 @@
+import time
 import cv2
 from app.config import Config
 from app.detector import FireDetector
 from app.streamer import VideoStreamer
 from app.draw import draw_boxes
+from app.notifier import TelegramNotifier
 
 
 class FireDetectionPipeline:
@@ -11,6 +13,11 @@ class FireDetectionPipeline:
         self.config = config
         self.frame_count = 0
         self.detection_count = 0
+        self.alert_count = 0
+
+        # Alert tracking
+        self.consecutive_count = 0
+        self.last_alert_time = 0.0
 
         # Initialize components
         print("Initializing detector...")
@@ -22,6 +29,15 @@ class FireDetectionPipeline:
 
         print(f"Initializing video streamer: {config.source}")
         self.streamer = VideoStreamer(source=config.source)
+
+        # Initialize Telegram if configured
+        self.telegram = None
+        if config.telegram_bot_token and config.telegram_chat_id:
+            print("Initializing Telegram notifier...")
+            self.telegram = TelegramNotifier(
+                bot_token=config.telegram_bot_token,
+                chat_id=config.telegram_chat_id,
+            )
 
     def run(self):
         """Run the detection pipeline."""
@@ -49,9 +65,22 @@ class FireDetectionPipeline:
                     self.detection_count += len(detections)
                     print(f"Frame {self.frame_count}: Detected {len(detections)} object(s)")
 
+                # Check alert logic
+                should_alert = self._should_alert(len(detections) > 0)
+
+                # Draw boxes for display or alert
+                annotated = draw_boxes(frame, detections) if detections or self.config.display else frame
+
+                # Send alert if triggered
+                if should_alert and self.telegram and detections:
+                    print(f"🚨 ALERT triggered! (consecutive: {self.consecutive_count})")
+                    self.telegram.send_alert(annotated, detections, self.config.source)
+                    self.alert_count += 1
+                    self.last_alert_time = time.time()
+                    self.consecutive_count = 0
+
                 # Display if enabled
                 if self.config.display:
-                    annotated = draw_boxes(frame, detections)
                     cv2.imshow("Fire Detection", annotated)
 
                     # Press 'q' to quit
@@ -68,6 +97,32 @@ class FireDetectionPipeline:
         finally:
             self._cleanup()
 
+    def _should_alert(self, has_detections: bool) -> bool:
+        """Check if alert should be triggered.
+
+        Args:
+            has_detections: Whether current frame has detections
+
+        Returns:
+            True if alert should be triggered
+        """
+        if has_detections:
+            self.consecutive_count += 1
+        else:
+            self.consecutive_count = 0
+            return False
+
+        # Check consecutive threshold
+        if self.consecutive_count < self.config.consecutive_detections:
+            return False
+
+        # Check cooldown
+        current_time = time.time()
+        if current_time - self.last_alert_time < self.config.alert_cooldown:
+            return False
+
+        return True
+
     def _cleanup(self):
         print("Cleaning up...")
         self.streamer.release()
@@ -76,3 +131,4 @@ class FireDetectionPipeline:
 
         print(f"\nTotal frames: {self.frame_count}")
         print(f"Total detections: {self.detection_count}")
+        print(f"Total alerts: {self.alert_count}")
