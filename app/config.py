@@ -22,6 +22,11 @@ class Config:
         self.telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         self.telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
 
+        # Web dashboard settings
+        self.web_dashboard_enabled = int(os.getenv("WEB_DASHBOARD_ENABLED", "1"))
+        self.web_host = os.getenv("WEB_HOST", "0.0.0.0")
+        self.web_port = int(os.getenv("WEB_PORT", "5000"))
+
     @classmethod
     def from_env(cls):
         return cls()

@@ -5,6 +5,7 @@ from app.detector import FireDetector
 from app.streamer import VideoStreamer
 from app.draw import draw_boxes
 from app.notifier import TelegramNotifier
+from app.web_notifier import WebNotifier
 
 
 class FireDetectionPipeline:
@@ -39,6 +40,16 @@ class FireDetectionPipeline:
                 chat_id=config.telegram_chat_id,
             )
 
+        # Initialize Web dashboard if enabled
+        self.web = None
+        if config.web_dashboard_enabled:
+            print("Initializing web dashboard...")
+            self.web = WebNotifier(
+                host=config.web_host,
+                port=config.web_port,
+            )
+            self.web.start()
+
     def run(self):
         """Run the detection pipeline."""
         print("Starting detection pipeline...")
@@ -72,9 +83,17 @@ class FireDetectionPipeline:
                 annotated = draw_boxes(frame, detections) if detections or self.config.display else frame
 
                 # Send alert if triggered
-                if should_alert and self.telegram and detections:
+                if should_alert and detections:
                     print(f"🚨 ALERT triggered! (consecutive: {self.consecutive_count})")
-                    self.telegram.send_alert(annotated, detections, self.config.source)
+
+                    # Send to Telegram
+                    if self.telegram:
+                        self.telegram.send_alert(annotated, detections, self.config.source)
+
+                    # Send to web dashboard
+                    if self.web:
+                        self.web.send_alert(annotated, detections, self.config.source)
+
                     self.alert_count += 1
                     self.last_alert_time = time.time()
                     self.consecutive_count = 0

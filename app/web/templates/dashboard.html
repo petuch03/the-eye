@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire Detection Alerts</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #ffffff;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: #ffffff;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .filter-tab {
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            color: #333;
+        }
+
+        .filter-tab.active {
+            color: #333;
+            border-bottom-color: #333;
+        }
+
+        .alerts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .alert-card {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .alert-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .alert-card.pending {
+            border-left: 3px solid #ff9800;
+        }
+
+        .alert-card.confirmed {
+            border-left: 3px solid #4caf50;
+            opacity: 0.7;
+        }
+
+        .alert-card.rejected {
+            border-left: 3px solid #f44336;
+            opacity: 0.7;
+        }
+
+        .alert-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            background: #f5f5f5;
+        }
+
+        .alert-content {
+            padding: 16px;
+        }
+
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .alert-label {
+            font-size: 18px;
+            font-weight: 500;
+            color: #333;
+            text-transform: capitalize;
+        }
+
+        .alert-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .alert-status.pending {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .alert-status.confirmed {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .alert-status.rejected {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .alert-meta {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .alert-meta div {
+            margin-bottom: 4px;
+        }
+
+        .alert-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-confirm {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-confirm:hover:not(:disabled) {
+            background: #388e3c;
+        }
+
+        .btn-reject {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-reject:hover:not(:disabled) {
+            background: #d32f2f;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #333;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Fire Detection Alerts</h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="all">All Alerts</button>
+            <button class="filter-tab" data-filter="pending">Pending</button>
+            <button class="filter-tab" data-filter="confirmed">Confirmed</button>
+            <button class="filter-tab" data-filter="rejected">Rejected</button>
+        </div>
+
+        <div id="alerts-container">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading alerts...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilter = 'all';
+
+        // Load alerts
+        async function loadAlerts() {
+            try {
+                const url = currentFilter === 'all'
+                    ? '/api/alerts'
+                    : `/api/alerts?status=${currentFilter}`;
+
+                const response = await fetch(url);
+                const alerts = await response.json();
+
+                renderAlerts(alerts);
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+                document.getElementById('alerts-container').innerHTML =
+                    '<div class="empty-state">Error loading alerts</div>';
+            }
+        }
+
+        // Render alerts
+        function renderAlerts(alerts) {
+            const container = document.getElementById('alerts-container');
+
+            if (currentFilter !== 'all') {
+                alerts = alerts.filter(a => a.status === currentFilter);
+            }
+
+            if (alerts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
+                        </svg>
+                        <div>No ${currentFilter === 'all' ? '' : currentFilter} alerts</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = `
+                <div class="alerts-grid">
+                    ${alerts.map(alert => `
+                        <div class="alert-card ${alert.status}">
+                            <img src="data:image/jpeg;base64,${alert.image}"
+                                 alt="Alert"
+                                 class="alert-image">
+                            <div class="alert-content">
+                                <div class="alert-header">
+                                    <div class="alert-label">${alert.label}</div>
+                                    <span class="alert-status ${alert.status}">
+                                        ${alert.status}
+                                    </span>
+                                </div>
+                                <div class="alert-meta">
+                                    <div><strong>Time:</strong> ${formatTime(alert.timestamp)}</div>
+                                    <div><strong>Count:</strong> ${alert.count} detection(s)</div>
+                                    <div><strong>Confidence:</strong> ${alert.confidences.join(', ')}</div>
+                                    <div><strong>Source:</strong> ${alert.source}</div>
+                                </div>
+                                ${alert.status === 'pending' ? `
+                                    <div class="alert-actions">
+                                        <button class="btn btn-confirm"
+                                                onclick="updateAlert(${alert.id}, 'confirmed')">
+                                            Confirm
+                                        </button>
+                                        <button class="btn btn-reject"
+                                                onclick="updateAlert(${alert.id}, 'rejected')">
+                                            Reject
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Update alert status
+        async function updateAlert(alertId, status) {
+            try {
+                const response = await fetch(`/api/alerts/${alertId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+
+                if (response.ok) {
+                    loadAlerts();
+                }
+            } catch (error) {
+                console.error('Error updating alert:', error);
+            }
+        }
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // Filter tabs
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.filter-tab').forEach(t =>
+                    t.classList.remove('active')
+                );
+                tab.classList.add('active');
+                currentFilter = tab.dataset.filter;
+                loadAlerts();
+            });
+        });
+
+        // Auto-refresh every 3 seconds
+        setInterval(loadAlerts, 3000);
+
+        // Initial load
+        loadAlerts();
+    </script>
+</body>
+</html>
