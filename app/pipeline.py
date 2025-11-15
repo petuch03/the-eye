@@ -17,6 +17,7 @@ class FireDetectionPipeline:
         self.detector = FireDetector(
             model_weights=config.model_weights,
             device=config.device,
+            class_map=config.class_map,
         )
 
         print(f"Initializing video streamer: {config.source}")
@@ -39,6 +40,10 @@ class FireDetectionPipeline:
 
                 # Run detection
                 detections = self.detector.detect(frame, conf=self.config.conf_thresh)
+
+                # Filter by target classes if specified
+                if self.config.target_classes:
+                    detections = [d for d in detections if d.cls in self.config.target_classes]
 
                 if detections:
                     self.detection_count += len(detections)

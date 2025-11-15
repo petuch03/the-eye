@@ -22,9 +22,10 @@ class Detection:
 
 
 class FireDetector:
-    def __init__(self, model_weights: str, device: str = "cpu"):
+    def __init__(self, model_weights: str, device: str = "cpu", class_map: Dict[int, str] = None):
         self.model_weights = model_weights
         self.device = device
+        self.class_map = class_map or {}
 
         print(f"Loading model from {model_weights}...")
         self.model = YOLO(model_weights)
@@ -44,11 +45,15 @@ class FireDetector:
 
                 for i in range(len(xyxy)):
                     x1, y1, x2, y2 = xyxy[i]
+                    cls_id = int(class_ids[i])
+                    label = self.class_map.get(cls_id, f"class_{cls_id}")
+
                     detection = Detection(
                         x1=float(x1), y1=float(y1),
                         x2=float(x2), y2=float(y2),
                         conf=float(confidences[i]),
-                        cls=int(class_ids[i]),
+                        cls=cls_id,
+                        label=label,
                     )
                     detections.append(detection)
 

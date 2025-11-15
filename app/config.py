@@ -11,6 +11,8 @@ class Config:
         self.img_size = int(os.getenv("IMG_SIZE", "640"))
         self.display = int(os.getenv("DISPLAY", "1"))
         self.device = "cpu"
+        self.class_map = {}
+        self.target_classes = []
 
     @classmethod
     def from_env(cls):
